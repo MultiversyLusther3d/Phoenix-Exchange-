@@ -127,14 +127,15 @@
             <h3 style="color: var(--gold); margin-top:0;">🎰 Grande Loteria Phoenix</h3>
             <p style="font-size: 13px;">Acumulado: <b id="jackpot-amount" style="font-size: 18px;">45.200</b> <small>EHD</small></p>
             <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
-                <small style="color: var(--silver-dark);">Seus Bilhetes (Salvos no SQLite):</small>
-                <div id="user-tickets" style="font-size: 20px; font-weight: bold;">0</div>
+                <small style="color: var(--silver-dark);">Seus Bilhetes (No Banco de Dados):</small>
+                <div id="user-tickets" style="font-size: 28px; font-weight: bold; color: var(--gold);">0</div>
+                <button onclick="atualizarBilhetesDoBanco()" style="background:none; border:none; color:var(--silver-dark); font-size:10px; cursor:pointer;">🔄 Sincronizar Agora</button>
             </div>
             <div style="display: flex; gap: 10px; align-items: center;">
                 <input type="number" id="ticketQty" value="1" min="1" style="flex: 1; margin-top:0; text-align: center;">
                 <button class="btn-silver" style="flex: 2; margin-top:0; background: var(--gold); font-size: 12px; color: black;" onclick="comprarLoteria()">COMPRAR (100 EHD cada)</button>
             </div>
-            <p style="font-size: 10px; color: var(--silver-dark); margin-top: 10px;">🔥 10% de cada bilhete é queimado automaticamente.</p>
+            <p style="font-size: 10px; color: var(--silver-dark); margin-top: 10px;">🔥 O Robô valida seu envio na Blockchain.</p>
         </div>
 
         <div class="card">
@@ -168,9 +169,8 @@
         WebApp.ready();
         WebApp.setHeaderColor('#001a33');
 
-        // ENDEREÇOS DEFINIDOS PELO ARQUITETO CRIS
-        const WALLET_TAXA_REDE = "0x2ea5d9c734ac06d639d3e4b70ae4c1e163b48555"; 
-        const WALLET_DEV_OPERACIONAL = "0x27aa494aa5581029c3de6a10fe144da040ed16d1"; 
+        // CONFIGURAÇÕES DA API (PythonAnywhere do Cris)
+        const URL_API = "https://seunome.pythonanywhere.com"; // AJUSTE AQUI SEU SUBDOMÍNIO
 
         function tgAlert(msg) { WebApp.showAlert(msg); }
 
@@ -179,7 +179,28 @@
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active-nav'));
             document.getElementById('screen-' + tela).classList.add('active-screen');
             document.getElementById('nav-' + tela).classList.add('active-nav');
+            
+            // Se for para a tela de loteria, atualiza os bilhetes automaticamente
+            if(tela === 'market') atualizarBilhetesDoBanco();
+            
             WebApp.HapticFeedback.impactOccurred('light');
+        }
+
+        // --- NOVA FUNÇÃO: BUSCA DADOS NO SQLITE VIA API ---
+        async function atualizarBilhetesDoBanco() {
+            try {
+                // Tentamos pegar a wallet salva ou o ID do telegram para consultar
+                const walletUser = "0x27aa494aa5581029c3de6a10fe144da040ed16d1"; // Substituir pela carteira real do user futuramente
+                
+                const response = await fetch(`${URL_API}/meus_bilhetes/${walletUser}`);
+                const data = await response.json();
+                
+                if(data.total_fichas !== undefined) {
+                    document.getElementById('user-tickets').innerText = data.total_fichas;
+                }
+            } catch (error) {
+                console.error("Erro ao buscar bilhetes:", error);
+            }
         }
 
         async function processarSwap() {
@@ -193,10 +214,9 @@
         async function comprarLoteria() {
             const qtd = document.getElementById('ticketQty').value;
             const custoTotal = qtd * 100;
-            WebApp.showConfirm(`Confirmar compra de ${qtd} bilhetes por ${custoTotal} EHD?\nO robô registrará no SQLite e a Wallet Dev receberá o valor.`, (confirmed) => {
+            WebApp.showConfirm(`Confirmar compra de ${qtd} bilhetes por ${custoTotal} EHD?\nEnvie o valor para a Wallet Dev. O robô detectará o depósito e salvará no Banco de Dados.`, (confirmed) => {
                 if(confirmed) {
-                    tgAlert("Sucesso! Aguarde a confirmação da rede.");
-                    document.getElementById('user-tickets').innerText = parseInt(document.getElementById('user-tickets').innerText) + parseInt(qtd);
+                    tgAlert("Aguardando depósito... O saldo será atualizado automaticamente assim que a blockchain confirmar.");
                 }
             });
         }
@@ -206,6 +226,9 @@
                 if(confirmed) tgAlert(`O Robô Phoenix processará a ativação de seu ${item}.`);
             });
         }
+
+        // Inicia com os dados do banco carregados
+        atualizarBilhetesDoBanco();
     </script>
 </body>
 </html>
