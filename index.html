@@ -131,6 +131,11 @@
                 <div id="user-tickets" style="font-size: 28px; font-weight: bold; color: var(--gold);">0</div>
                 <button onclick="atualizarBilhetesDoBanco()" style="background:none; border:none; color:var(--silver-dark); font-size:10px; cursor:pointer;">🔄 Sincronizar Agora</button>
             </div>
+            <div class="card" style="border: 2px solid var(--accent-green); background: rgba(35, 134, 54, 0.1);">
+    <h4 style="color: var(--accent-green); margin: 0;">🏆 ÚLTIMO GANHADOR</h4>
+    <small id="ganhador-display" style="word-break: break-all; font-size: 11px;">Carregando...</small>
+            </div>
+            
             <div style="display: flex; gap: 10px; align-items: center;">
                 <input type="number" id="ticketQty" value="1" min="1" style="flex: 1; margin-top:0; text-align: center;">
                 <button class="btn-silver" style="flex: 2; margin-top:0; background: var(--gold); font-size: 12px; color: black;" onclick="comprarLoteria()">COMPRAR (100 EHD cada)</button>
@@ -229,6 +234,18 @@
 
         // Inicia com os dados do banco carregados
         atualizarBilhetesDoBanco();
+        async function carregarGanhador() {
+    try {
+        const response = await fetch(`${URL_API}/ultimo_ganhador`);
+        const data = await response.json();
+        document.getElementById('ganhador-display').innerText = data.ganhador;
+    } catch (e) {
+        document.getElementById('ganhador-display').innerText = "Erro ao carregar";
+    }
+}
+
+// Chame essa função dentro da irPara('market')
+        
     </script>
 </body>
 </html>
