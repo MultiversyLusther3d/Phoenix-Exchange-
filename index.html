@@ -1,1 +1,250 @@
 
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phoenix Exchange</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg-blue: #000a1a;
+            --card-blue: #001a33;
+            --silver: #c0c0c0;
+            --silver-dark: #a0a0a0;
+            --text-silver: #e0e0e0;
+            --accent-green: #238636;
+            --gold: #f3ba2f;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: var(--bg-blue); 
+            color: var(--text-silver); 
+            margin: 0; 
+            padding-bottom: 100px;
+            display: flex; flex-direction: column; align-items: center;
+            overflow-x: hidden;
+        }
+
+        .header {
+            width: 100%; padding: 25px 0; text-align: center;
+            background: var(--card-blue);
+            border-bottom: 2px solid var(--silver);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+        }
+        .logo-container {
+            width: 85px; height: 85px; margin: 0 auto 12px;
+            overflow: hidden; border: 3px solid var(--silver);
+            border-radius: 50%; background: #fff;
+            box-shadow: 0 0 20px rgba(192, 192, 192, 0.4);
+        }
+        .logo-container img { width: 100%; height: 100%; object-fit: cover; }
+
+        .screen { display: none; padding: 20px; width: 100%; max-width: 500px; box-sizing: border-box; }
+        .active-screen { display: block !important; animation: slideUp 0.3s ease-out; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .card { 
+            background: linear-gradient(145deg, var(--card-blue), var(--bg-blue)); 
+            border: 2px solid var(--silver);
+            border-radius: 24px; padding: 25px; margin-bottom: 20px;
+            text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        }
+
+        .btn-silver { 
+            background: linear-gradient(180deg, #e0e0e0 0%, #a0a0a0 100%); 
+            color: #000a1a; border: none; padding: 16px; width: 100%;
+            border-radius: 14px; font-weight: 800; cursor: pointer; margin-top: 12px;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .market-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(255, 255, 255, 0.05); padding: 18px;
+            border-radius: 15px; margin-bottom: 12px; border: 1px solid rgba(192, 192, 192, 0.2);
+        }
+
+        input { 
+            width: 100%; padding: 14px; margin-top: 10px; border-radius: 10px; 
+            border: 1px solid var(--silver-dark); background: #000a1a; color: #fff; 
+            box-sizing: border-box; font-size: 16px;
+        }
+
+        .navbar {
+            position: fixed; bottom: 0; width: 100%; max-width: 500px;
+            background: var(--card-blue); border-top: 2px solid var(--silver);
+            display: flex; justify-content: space-around; padding: 12px 0; z-index: 9999;
+        }
+        .nav-item { 
+            color: var(--silver-dark); text-align: center; cursor: pointer; 
+            font-size: 11px; flex: 1; font-weight: bold; transition: 0.3s;
+        }
+        .nav-item.active-nav { color: #ffffff; transform: scale(1.1); }
+        .nav-icon { font-size: 24px; margin-bottom: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo-container">
+            <img src="1000050341-removebg-preview.png" alt="Logo EHD">
+        </div>
+        <h2 style="margin:0; letter-spacing: 2px;">PHOENIX EXCHANGE</h2>
+        <small id="user-wallet" style="color: #00ff00;">● Dev Wallet: 0x27aa...16d1</small>
+    </div>
+
+    <div id="screen-exchange" class="screen active-screen">
+        <div class="card">
+            <h3 style="margin-top:0;">🦅 Bridge & Swap</h3>
+            <p style="font-size: 14px;">Transforme Pix em EHD ou saque para Exchange via MATIC.</p>
+            <button class="btn-silver" style="background: var(--accent-green); color: white;" onclick="tgAlert('Redirecionando para Gateway Pix...')">COMPRAR MATIC (PIX)</button>
+            <hr style="margin: 25px 0; border: 0; height: 1px; background: rgba(192, 192, 192, 0.3);">
+            <label style="font-size: 11px; font-weight: bold;">SAQUE: CONVERTER EHD P/ MATIC</label>
+            <input type="number" id="swapQty" placeholder="Quantidade EHD">
+            <button class="btn-silver" onclick="processarSwap()">EFETUAR SAQUE AUTOMÁTICO</button>
+        </div>
+    </div>
+
+    <div id="screen-stake" class="screen">
+        <div class="card">
+            <span style="font-size: 10px; border: 1px solid var(--silver); padding: 4px 12px; border-radius: 20px; font-weight: bold;">REAL YIELD 1%</span>
+            <div id="stake-balance" style="font-size: 36px; font-weight: bold; margin: 20px 0; color: white;">0.0000 <small style="font-size: 14px;">EHD</small></div>
+            <p style="font-size: 13px; color: var(--silver-dark);">Suas recompensas da Taxa de Rede (Destino: 0x2ea5...)</p>
+            <button class="btn-silver" onclick="tgAlert('Coletando recompensas...')">COLETAR LUCROS</button>
+            <input type="number" id="stakeInput" placeholder="Valor p/ Staking">
+            <button class="btn-silver" style="background: transparent; border: 2px solid var(--silver); color: white;">ADICIONAR AO COFRE</button>
+        </div>
+    </div>
+
+    <div id="screen-market" class="screen">
+        <div class="card" style="border: 2px solid var(--gold); background: rgba(243, 186, 47, 0.05);">
+            <h3 style="color: var(--gold); margin-top:0;">🎰 Grande Loteria Phoenix</h3>
+            <p style="font-size: 13px;">Acumulado: <b id="jackpot-amount" style="font-size: 18px;">45.200</b> <small>EHD</small></p>
+            <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 12px; margin-bottom: 15px;">
+                <small style="color: var(--silver-dark);">Seus Bilhetes (No Banco de Dados):</small>
+                <div id="user-tickets" style="font-size: 28px; font-weight: bold; color: var(--gold);">0</div>
+                <button onclick="atualizarBilhetesDoBanco()" style="background:none; border:none; color:var(--silver-dark); font-size:10px; cursor:pointer;">🔄 Sincronizar Agora</button>
+            </div>
+            <div class="card" style="border: 2px solid var(--accent-green); background: rgba(35, 134, 54, 0.1);">
+                <h4 style="color: var(--accent-green); margin: 0;">🏆 ÚLTIMO GANHADOR</h4>
+                <small id="ganhador-display" style="word-break: break-all; font-size: 11px;">Carregando...</small>
+            </div>
+            
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="ticketQty" value="1" min="1" style="flex: 1; margin-top:0; text-align: center;">
+                <button class="btn-silver" style="flex: 2; margin-top:0; background: var(--gold); font-size: 12px; color: black;" onclick="comprarLoteria()">COMPRAR (100 EHD cada)</button>
+            </div>
+            <p style="font-size: 10px; color: var(--silver-dark); margin-top: 10px;">🔥 O Robô valida seu envio na Blockchain.</p>
+        </div>
+    </div>
+
+    <nav class="navbar">
+        <div id="nav-exchange" class="nav-item active-nav" onclick="irPara('exchange')">
+            <div class="nav-icon">🦅</div>EXCHANGE
+        </div>
+        <div id="nav-stake" class="nav-item" onclick="irPara('stake')">
+            <div class="nav-icon">💎</div>STAKE
+        </div>
+        <div id="nav-market" class="nav-item" onclick="irPara('market')">
+            <div class="nav-icon">🔥</div>BURN
+        </div>
+    </nav>
+
+    <script>
+        // CONFIGURAÇÕES DO TELEGRAM
+        const WebApp = window.Telegram.WebApp;
+        WebApp.expand();
+        WebApp.ready();
+        WebApp.setHeaderColor('#001a33');
+
+        // CONFIGURAÇÕES DO SUPABASE - COLOQUE SUAS CREDENCIAIS AQUI
+        const SUPABASE_URL = "SUA_URL_DO_SUPABASE";
+        const SUPABASE_KEY = "SUA_ANON_KEY_DO_SUPABASE";
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // CONFIGURAÇÃO DA WALLET (Mantenha sua wallet dev para testes)
+        const WALLET_USER = "0x27aa494aa5581029c3de6a10fe144da040ed16d1";
+
+        function tgAlert(msg) { WebApp.showAlert(msg); }
+
+        function irPara(tela) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active-nav'));
+            document.getElementById('screen-' + tela).classList.add('active-screen');
+            document.getElementById('nav-' + tela).classList.add('active-nav');
+            
+            if(tela === 'market') {
+                atualizarBilhetesDoBanco();
+                carregarGanhador();
+            }
+            
+            WebApp.HapticFeedback.impactOccurred('light');
+        }
+
+        // BUSCA BILHETES DIRETAMENTE NO SUPABASE (Soma de todos os registros da wallet)
+        async function atualizarBilhetesDoBanco() {
+            try {
+                let { data, error } = await supabase
+                    .from('loteria')
+                    .select('qtd_bilhetes')
+                    .eq('wallet_user', WALLET_USER);
+
+                if (error) throw error;
+
+                if (data) {
+                    const total = data.reduce((acc, curr) => acc + curr.qtd_bilhetes, 0);
+                    document.getElementById('user-tickets').innerText = total;
+                }
+            } catch (error) {
+                console.error("Erro Supabase (Bilhetes):", error);
+            }
+        }
+
+        // CARREGA O ÚLTIMO GANHADOR DO SUPABASE
+        async function carregarGanhador() {
+            try {
+                let { data, error } = await supabase
+                    .from('ganhadores')
+                    .select('carteira')
+                    .order('id', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                if (data) {
+                    document.getElementById('ganhador-display').innerText = data.carteira;
+                } else {
+                    document.getElementById('ganhador-display').innerText = "Aguardando Sorteio";
+                }
+            } catch (error) {
+                document.getElementById('ganhador-display').innerText = "Nenhum ganhador ainda";
+            }
+        }
+
+        async function processarSwap() {
+            const qtd = document.getElementById('swapQty').value;
+            if(!qtd) return tgAlert("Insira uma quantidade.");
+            WebApp.showConfirm(`O Robô converterá ${qtd} EHD. O MATIC será enviado automaticamente. Confirmar?`, (conf) => {
+                if(conf) tgAlert("Processando... O robô identificará o depósito na Wallet Dev.");
+            });
+        }
+
+        async function comprarLoteria() {
+            const qtd = document.getElementById('ticketQty').value;
+            const custoTotal = qtd * 100;
+            WebApp.showConfirm(`Confirmar compra de ${qtd} bilhetes por ${custoTotal} EHD?\nEnvie para a Wallet Dev. O robô detectará o depósito automaticamente.`, (confirmed) => {
+                if(confirmed) {
+                    tgAlert("Aguardando depósito... O saldo será atualizado assim que a blockchain confirmar.");
+                }
+            });
+        }
+
+        // Inicialização
+        atualizarBilhetesDoBanco();
+        carregarGanhador();
+    </script>
+</body>
+</html>
