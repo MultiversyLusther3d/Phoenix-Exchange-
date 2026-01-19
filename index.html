@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
@@ -60,12 +59,6 @@
             color: #000a1a; border: none; padding: 16px; width: 100%;
             border-radius: 14px; font-weight: 800; cursor: pointer; margin-top: 12px;
             text-transform: uppercase; letter-spacing: 1px;
-        }
-
-        .market-row {
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(255, 255, 255, 0.05); padding: 18px;
-            border-radius: 15px; margin-bottom: 12px; border: 1px solid rgba(192, 192, 192, 0.2);
         }
 
         input { 
@@ -138,7 +131,6 @@
                 <input type="number" id="ticketQty" value="1" min="1" style="flex: 1; margin-top:0; text-align: center;">
                 <button class="btn-silver" style="flex: 2; margin-top:0; background: var(--gold); font-size: 12px; color: black;" onclick="comprarLoteria()">COMPRAR (100 EHD cada)</button>
             </div>
-            <p style="font-size: 10px; color: var(--silver-dark); margin-top: 10px;">🔥 O Robô valida seu envio na Blockchain.</p>
         </div>
     </div>
 
@@ -155,18 +147,18 @@
     </nav>
 
     <script>
-        // CONFIGURAÇÕES DO TELEGRAM
+        // INICIALIZAÇÃO TELEGRAM
         const WebApp = window.Telegram.WebApp;
         WebApp.expand();
         WebApp.ready();
-        WebApp.setHeaderColor('#001a33');
 
-        // CONFIGURAÇÕES DO SUPABASE - COLOQUE SUAS CREDENCIAIS AQUI
+        // INICIALIZAÇÃO SUPABASE (CORRIGIDO)
         const SUPABASE_URL = "https://ctxwhacnwaertscxrwsh.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN0eHdoYWNud2FlcnRzY3hyd3NoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4MzE2NTAsImV4cCI6MjA4NDQwNzY1MH0.2V-3IFUPrTDXC3IPjyVBw-aUsJhJupkvl-tMKV2wsUc";
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Forma correta de criar o cliente usando CDN
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // CONFIGURAÇÃO DA WALLET (Mantenha sua wallet dev para testes)
         const WALLET_USER = "0x27aa494aa5581029c3de6a10fe144da040ed16d1";
 
         function tgAlert(msg) { WebApp.showAlert(msg); }
@@ -181,70 +173,49 @@
                 atualizarBilhetesDoBanco();
                 carregarGanhador();
             }
-            
-            WebApp.HapticFeedback.impactOccurred('light');
         }
 
-        // BUSCA BILHETES DIRETAMENTE NO SUPABASE (Soma de todos os registros da wallet)
         async function atualizarBilhetesDoBanco() {
             try {
-                let { data, error } = await supabase
-                    .from('loteria')
-                    .select('qtd_bilhetes')
-                    .eq('wallet_user', WALLET_USER);
+                // Filtra pelo ID do Telegram se disponível, senão usa a wallet dev
+                const user = WebApp.initDataUnsafe.user;
+                const query = supabaseClient.from('loteria').select('qtd_bilhetes');
+                
+                if(user) {
+                    query.eq('telegram_id', user.id.toString());
+                } else {
+                    query.eq('wallet_user', WALLET_USER);
+                }
+
+                let { data, error } = await query;
 
                 if (error) throw error;
-
-                if (data) {
-                    const total = data.reduce((acc, curr) => acc + curr.qtd_bilhetes, 0);
-                    document.getElementById('user-tickets').innerText = total;
-                }
-            } catch (error) {
-                console.error("Erro Supabase (Bilhetes):", error);
-            }
+                const total = data ? data.reduce((acc, curr) => acc + curr.qtd_bilhetes, 0) : 0;
+                document.getElementById('user-tickets').innerText = total;
+            } catch (e) { console.error("Erro:", e); }
         }
 
-        // CARREGA O ÚLTIMO GANHADOR DO SUPABASE
         async function carregarGanhador() {
             try {
-                let { data, error } = await supabase
+                let { data, error } = await supabaseClient
                     .from('ganhadores')
                     .select('carteira')
                     .order('id', { ascending: false })
                     .limit(1)
                     .single();
 
-                if (data) {
-                    document.getElementById('ganhador-display').innerText = data.carteira;
-                } else {
-                    document.getElementById('ganhador-display').innerText = "Aguardando Sorteio";
-                }
-            } catch (error) {
-                document.getElementById('ganhador-display').innerText = "Nenhum ganhador ainda";
-            }
+                if (data) document.getElementById('ganhador-display').innerText = data.carteira;
+            } catch (e) { document.getElementById('ganhador-display').innerText = "Aguardando..."; }
         }
 
-        async function processarSwap() {
-            const qtd = document.getElementById('swapQty').value;
-            if(!qtd) return tgAlert("Insira uma quantidade.");
-            WebApp.showConfirm(`O Robô converterá ${qtd} EHD. O MATIC será enviado automaticamente. Confirmar?`, (conf) => {
-                if(conf) tgAlert("Processando... O robô identificará o depósito na Wallet Dev.");
-            });
-        }
+        function processarSwap() { tgAlert("O robô detectará seu envio automático na Blockchain."); }
+        function comprarLoteria() { tgAlert("Envie 100 EHD por bilhete para a Wallet Dev."); }
 
-        async function comprarLoteria() {
-            const qtd = document.getElementById('ticketQty').value;
-            const custoTotal = qtd * 100;
-            WebApp.showConfirm(`Confirmar compra de ${qtd} bilhetes por ${custoTotal} EHD?\nEnvie para a Wallet Dev. O robô detectará o depósito automaticamente.`, (confirmed) => {
-                if(confirmed) {
-                    tgAlert("Aguardando depósito... O saldo será atualizado assim que a blockchain confirmar.");
-                }
-            });
-        }
-
-        // Inicialização
-        atualizarBilhetesDoBanco();
-        carregarGanhador();
+        // Início
+        window.onload = () => {
+            atualizarBilhetesDoBanco();
+            carregarGanhador();
+        };
     </script>
 </body>
 </html>
